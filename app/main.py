@@ -8,6 +8,7 @@ from aiogram import Bot, Dispatcher
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
+from app.api import intakes
 from app.bot import router
 from app.config import BOT_TOKEN
 from app.database import engine
@@ -49,7 +50,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Ліки вчасно API", version="0.1.0", lifespan=lifespan)
-
+app.include_router(intakes.router)
 
 @app.get("/")
 async def root():
