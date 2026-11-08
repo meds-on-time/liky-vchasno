@@ -8,14 +8,14 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.config import DATABASE_URL
+from app.models import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
-# IMPORTANT: Masha will import Base.metadata here once her models exist.
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
