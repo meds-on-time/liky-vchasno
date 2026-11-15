@@ -57,17 +57,24 @@ def build_keyboard(intake_id: int, show_snooze: bool) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def build_missed_alert_text(n: Notification) -> str:
+    """SCRUM-26: message to a trusted contact. Facts only, no medical advice."""
+    who = n.patient_name or "Ваш підопічний"
+    return (
+        "Пропущено прийом ліків\n"
+        f"{who} не відмітив(-ла) прийом: {n.medication.name}, {n.medication.dose} "
+        f"о {kyiv_hhmm(n.intake.scheduled_at)}.\n"
+        "Можливо, варто зателефонувати."
+    )
+
+
 async def send_reminder(bot: Bot, n: Notification) -> None:
     keyboard = build_keyboard(n.intake.id, can_snooze(n.intake.scheduled_at, now_utc()))
     await bot.send_message(n.chat_id, build_reminder_text(n), reply_markup=keyboard)
 
 
 async def send_missed_alert(bot: Bot, n: Notification) -> None:
-    who = n.patient_name or "Ваш підопічний"
-    await bot.send_message(
-        n.chat_id,
-        f"{who} пропустив(-ла) прийом: {n.medication.name} о {kyiv_hhmm(n.intake.scheduled_at)}.",
-    )
+    await bot.send_message(n.chat_id, build_missed_alert_text(n))
 
 
 async def deliver(bot: Bot, notifications: list[Notification]) -> None:
