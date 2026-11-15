@@ -1,17 +1,14 @@
-"""Take/snooze endpoints from the API contract.
+"""Take/snooze endpoints from the API contract (SCRUM-52)."""
 
-STUBS for now (SCRUM-13), real logic comes in SCRUM-52.
-Response depends on intake_id: 1 -> ok, 2 -> already_taken, 3 -> missed, other -> 404.
-"""
-
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-KYIV = ZoneInfo("Europe/Kyiv")
+from app.database import SessionDep
+from app.services import reminders
+from app.timeutils import now_utc
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])
 
@@ -22,29 +19,23 @@ class TakeResponse(BaseModel):
 
 
 class SnoozeResponse(BaseModel):
-    result: Literal["ok", "already_taken", "missed"]
+    result: Literal["ok", "already_taken", "missed", "too_late"]
     remind_at: datetime | None = None
 
 
 @router.post("/{intake_id}/take", response_model=TakeResponse)
-async def take_intake(intake_id: int) -> TakeResponse:
-    now = datetime.now(KYIV)
-    if intake_id == 1:
-        return TakeResponse(result="ok", taken_at=now)
-    if intake_id == 2:
-        return TakeResponse(result="already_taken", taken_at=now - timedelta(minutes=5))
-    if intake_id == 3:
-        return TakeResponse(result="missed")
-    raise HTTPException(status_code=404, detail="intake not found")
+async def take_intake(intake_id: int, session: SessionDep) -> TakeResponse:
+    outcome = await reminders.take(session, intake_id, now_utc())
+    if outcome is None:
+        raise HTTPException(status_code=404, detail="intake not found")
+    result, taken_at = outcome
+    return TakeResponse(result=result, taken_at=taken_at)
 
 
 @router.post("/{intake_id}/snooze", response_model=SnoozeResponse)
-async def snooze_intake(intake_id: int) -> SnoozeResponse:
-    now = datetime.now(KYIV)
-    if intake_id == 1:
-        return SnoozeResponse(result="ok", remind_at=now + timedelta(minutes=10))
-    if intake_id == 2:
-        return SnoozeResponse(result="already_taken")
-    if intake_id == 3:
-        return SnoozeResponse(result="missed")
-    raise HTTPException(status_code=404, detail="intake not found")
+async def snooze_intake(intake_id: int, session: SessionDep) -> SnoozeResponse:
+    outcome = await reminders.snooze(session, intake_id, now_utc())
+    if outcome is None:
+        raise HTTPException(status_code=404, detail="intake not found")
+    result, remind_at = outcome
+    return SnoozeResponse(result=result, remind_at=remind_at)

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    tasks: list[asyncio.Task] = [asyncio.create_task(scheduler_loop())]
+    tasks: list[asyncio.Task] = []
     bot: Bot | None = None
     app.state.bot_enabled = False
 
@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
         logger.info("Telegram polling task started")
     else:
         logger.warning("BOT_TOKEN is empty; Telegram polling is disabled")
+    tasks.append(asyncio.create_task(scheduler_loop(bot)))
 
     try:
         yield
