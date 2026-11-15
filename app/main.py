@@ -1,4 +1,5 @@
-"""One application process: FastAPI + aiogram + scheduler placeholder."""
+
+"""One application process: FastAPI + aiogram + scheduler."""
 
 import asyncio
 import logging
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
         logger.info("Telegram polling task started")
     else:
         logger.warning("BOT_TOKEN is empty; Telegram polling is disabled")
+
     tasks.append(asyncio.create_task(scheduler_loop(bot)))
 
     try:
@@ -50,21 +52,100 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="Ліки вчасно API", version="0.1.0", lifespan=lifespan)
+tags_metadata = [
+    {
+        "name": "intakes",
+        "description": (
+            "Операції з прийомами ліків: підтвердження прийому "
+            "та відкладання нагадування."
+        ),
+    },
+    {
+        "name": "schedules",
+        "description": (
+            "Створення, оновлення та перегляд розкладу прийому препаратів."
+        ),
+    },
+    {
+        "name": "system",
+        "description": "Службові ендпоінти для перевірки стану застосунку.",
+    },
+]
+
+
+app = FastAPI(
+    title="Ліки вчасно API",
+    description=(
+        "REST API навчального сервісу «Ліки вчасно». "
+        "Система допомагає користувачам дотримуватися розкладу "
+        "прийому препаратів через Telegram-бота. "
+        "API забезпечує керування розкладом, підтвердження "
+        "прийому ліків і відкладання нагадувань. "
+        "Час прийомів відображається за часовим поясом Europe/Kyiv."
+    ),
+    version="0.1.0",
+    openapi_tags=tags_metadata,
+    lifespan=lifespan,
+)
+
 app.include_router(intakes.router)
 app.include_router(schedules.router)
 
-@app.get("/")
+
+@app.get(
+    "/",
+    tags=["system"],
+    summary="Інформація про сервіс",
+    description="Повертає назву сервісу та поточний статус стартового API.",
+    responses={
+        200: {
+            "description": "Інформацію про сервіс отримано успішно."
+        }
+    },
+)
 async def root():
     return {"service": "Ліки вчасно", "status": "starter"}
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["system"],
+    summary="Перевірка стану сервера",
+    description=(
+        "Перевіряє доступність PostgreSQL та повертає інформацію "
+        "про активність Telegram-бота."
+    ),
+    responses={
+        200: {
+            "description": "Сервер і база даних працюють.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "ok",
+                        "database": "connected",
+                        "bot_enabled": True,
+                    }
+                }
+            },
+        },
+        503: {
+            "description": "База даних недоступна."
+        },
+    },
+)
 async def health():
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
     except Exception as exc:
         logger.exception("Database health check failed")
-        raise HTTPException(status_code=503, detail="database unavailable") from exc
-    return {"status": "ok", "database": "connected", "bot_enabled": app.state.bot_enabled}
+        raise HTTPException(
+            status_code=503,
+            detail="database unavailable",
+        ) from exc
+
+    return {
+        "status": "ok",
+        "database": "connected",
+        "bot_enabled": app.state.bot_enabled,
+    }
