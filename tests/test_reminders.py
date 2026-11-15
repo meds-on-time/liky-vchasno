@@ -128,6 +128,19 @@ def test_snooze_after_t_plus_50_is_too_late(session_factory):
     run(tick(session_factory, at(20, 0)))
     assert run(snooze(session_factory, at(20, 52))) == ("too_late", None)
 
+def test_repeat_at_t_plus_30(session_factory):
+    run(setup(session_factory))
+    run(tick(session_factory, at(20, 0)))
+    assert run(tick(session_factory, at(20, 30))) == [("repeat", 100)]
+    assert run(tick(session_factory, at(20, 31))) == []
+
+
+def test_snooze_near_t_plus_30_gives_one_message_not_two(session_factory):
+    run(setup(session_factory))
+    run(tick(session_factory, at(20, 0)))
+    run(snooze(session_factory, at(20, 25)))  # would fire at 20:35
+    assert run(tick(session_factory, at(20, 30))) == [("repeat", 100)]
+    assert run(tick(session_factory, at(20, 35))) == []
 
 def test_snooze_does_not_move_missed_time(session_factory):
     run(setup(session_factory))
