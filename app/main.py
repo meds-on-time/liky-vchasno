@@ -12,6 +12,7 @@ from sqlalchemy import text
 from app.api import intakes, schedules
 from app.bot import router
 from app.bot_contacts import router as contacts_router
+from app.bot_reminders import reminders_router
 from app.config import BOT_TOKEN
 from app.database import engine
 from app.scheduler import scheduler_loop
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
         dp = Dispatcher()
         dp.include_router(contacts_router)
         dp.include_router(router)
+        dp.include_router(reminders_router)
         tasks.append(
             asyncio.create_task(
                 dp.start_polling(bot, handle_signals=False, close_bot_session=False)
