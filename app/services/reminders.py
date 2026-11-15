@@ -1,6 +1,6 @@
-"""SCRUM-52: reminder rule.
+"""SCRUM-52 / SCRUM-25: reminder rule.
 
-Intake at T: reminder at T, missed at T+60 (repeat at T+30 is SCRUM-25).
+Intake at T: reminder at T, repeat at T+30, missed at T+60.
 Snooze sends one more reminder after 10 min and does not move T+30 / T+60.
 Snooze is not allowed from T+50. 'Taken' after T+60 changes nothing.
 Every function gets `now` as a parameter so tests can control time.
@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.timeutils import KYIV, as_utc, kyiv_datetime
 
+REPEAT_AFTER = timedelta(minutes=30)
 MISSED_AFTER = timedelta(minutes=60)
 SNOOZE_FOR = timedelta(minutes=10)
 SNOOZE_DEADLINE = timedelta(minutes=50)
@@ -32,7 +33,7 @@ SNOOZE_DEADLINE = timedelta(minutes=50)
 
 @dataclass
 class Notification:
-    """What the bot has to send. kind: regular | snooze | missed_alert."""
+    """What the bot has to send. kind: regular | snooze | repeat | missed_alert."""
 
     kind: str
     chat_id: int
@@ -160,8 +161,18 @@ async def tick(session: AsyncSession, now: datetime) -> list[Notification]:
                     out.append(Notification("missed_alert", chat_id, intake, med, user.name))
             continue
 
-        if intake.snoozed_until is not None and now >= as_utc(intake.snoozed_until):
+        snooze_due = intake.snoozed_until is not None and now >= as_utc(intake.snoozed_until)
+        repeat_due = not intake.repeat_sent and now >= t + REPEAT_AFTER
+
+        # SCRUM-25: one message only if snooze and repeat fall together
+        if repeat_due:
+            intake.repeat_sent = True
             intake.snoozed_until = None
+            out.append(Notification("repeat", user.telegram_id, intake, med))
+        elif snooze_due:
+            intake.snoozed_until = None
+            if now >= t + REPEAT_AFTER - SNOOZE_FOR:
+                intake.repeat_sent = True  # snooze close to T+30 replaces the repeat
             out.append(Notification("snooze", user.telegram_id, intake, med))
 
     await session.commit()
