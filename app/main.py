@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from app.api import intakes, schedules
 from app.bot import router
+from app.bot_contacts import router as contacts_router
 from app.bot_reminders import reminders_router
 from app.config import BOT_TOKEN
 from app.database import engine
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
     if BOT_TOKEN:
         bot = Bot(token=BOT_TOKEN)
         dp = Dispatcher()
+        dp.include_router(contacts_router)
         dp.include_router(router)
         dp.include_router(reminders_router)
         tasks.append(
