@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
 from app.api import intakes, schedules
+from app.bot import router
 from app.bot_contacts import router as contacts_router
 from app.config import BOT_TOKEN
 from app.database import engine
