@@ -48,7 +48,7 @@ async def times_command(message: Message, command: CommandObject) -> None:
         )
         medication = await latest_medication(session, user.id)
         if medication is None:
-            await message.answer("Спершу додайте препарат.")
+            await message.answer("Спершу додайте препарат: /add")
             return
         try:
             times = parse_times(command.args.split())
