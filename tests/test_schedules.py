@@ -33,19 +33,23 @@ async def add_medication(session_factory) -> int:
 
 
 def test_parse_times():
+    """Рядки часу формату ГГ:ХХ коректно перетворюються на об'єкти time"""
     assert parse_times(["8:00", "20:30"]) == [time(8, 0), time(20, 30)]
 
 
 def test_parse_times_rejects_bad_value():
+    """Некоректний формат часу викликає помилку ScheduleError"""
     with pytest.raises(ScheduleError):
         parse_times(["25:00"])
 
 
 def test_validate_sorts_times():
+    """Валідація розкладу впорядковує часи прийому за зростанням"""
     assert validate_times([time(20), time(8)]) == [time(8), time(20)]
 
 
 def test_validate_rejects_empty_duplicates_and_too_many():
+    """Валідація відхиляє порожній список, дублікати та понад 6 прийомів на добу"""
     with pytest.raises(ScheduleError):
         validate_times([])
     with pytest.raises(ScheduleError):
@@ -55,6 +59,7 @@ def test_validate_rejects_empty_duplicates_and_too_many():
 
 
 def test_set_schedule_replaces_old_times(session_factory):
+    """Оновлення розкладу препарату повністю замінює попередні часи прийому"""
     async def scenario():
         med_id = await add_medication(session_factory)
         async with session_factory() as session:
@@ -66,6 +71,7 @@ def test_set_schedule_replaces_old_times(session_factory):
 
 
 def test_api_put_and_get_schedule(session_factory):
+    """PUT та GET /medications/{id}/schedule зберігають і повертають відсортовані часи або 404"""
     med_id = run(add_medication(session_factory))
 
     async def override():

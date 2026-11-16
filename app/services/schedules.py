@@ -1,6 +1,7 @@
 """SCRUM-18: intake times per day."""
 
 from datetime import date, time
+from itertools import pairwise
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,14 +9,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Medication, Schedule
 
 MAX_TIMES_PER_DAY = 6
+MIN_GAP_MINUTES = 60
 
 
 class ScheduleError(ValueError):
     """Invalid schedule; the message is shown to the user."""
 
 
+def _minutes(t: time) -> int:
+    return t.hour * 60 + t.minute
+
+
 def check_min_gap(times: list[time]) -> None:
-    """Placeholder for SCRUM-27 (Max): reject intakes closer than 60 minutes."""
+    """SCRUM-27: neighbouring intakes must be at least 60 minutes apart.
+
+    `times` is sorted. The last intake and the first one of the next day are
+    neighbours too (23:30 and 00:10 are only 40 minutes apart).
+    """
+    if len(times) < 2:
+        return
+    pairs = list(pairwise(times)) + [(times[-1], times[0])]
+    for a, b in pairs:
+        gap = (_minutes(b) - _minutes(a)) % (24 * 60)
+        if gap < MIN_GAP_MINUTES:
+            raise ScheduleError(
+                f"Між прийомами має бути щонайменше {MIN_GAP_MINUTES} хв: "
+                f"{a:%H:%M} і {b:%H:%M}."
+            )
 
 
 def validate_times(times: list[time]) -> list[time]:

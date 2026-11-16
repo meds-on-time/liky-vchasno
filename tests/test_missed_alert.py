@@ -17,6 +17,7 @@ def alert(patient_name):
 
 
 def test_missed_alert_with_patient_name():
+    """Сповіщення про пропуск містить ім'я пацієнта, препарат, дозу та час за Києвом"""
     text = build_missed_alert_text(alert("Олена"))
     assert "Олена не відмітив(-ла) прийом" in text
     assert "Сертралін, 50 мг о 20:00" in text  # Kyiv time
@@ -24,6 +25,7 @@ def test_missed_alert_with_patient_name():
 
 
 def test_missed_alert_without_name_uses_neutral_word():
+    """Якщо ім'я пацієнта не вказано, у сповіщенні вживається «Ваш підопічний»"""
     text = build_missed_alert_text(alert(None))
     assert "Ваш підопічний не відмітив(-ла) прийом" in text
     assert "None" not in text
