@@ -10,7 +10,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User, WebLoginToken, WebSession
@@ -68,7 +68,15 @@ async def exchange_token(session: AsyncSession, token: str, now: datetime) -> Ex
     if now >= as_utc(row.expires_at):
         return ExchangeResult(TOKEN_EXPIRED)
 
-    row.used_at = now
+    # Mark the token as used only if nobody did it a moment earlier (two clicks at once)
+    claimed = await session.execute(
+        update(WebLoginToken)
+        .where(WebLoginToken.id == row.id, WebLoginToken.used_at.is_(None))
+        .values(used_at=now)
+    )
+    if claimed.rowcount != 1:
+        await session.rollback()
+        return ExchangeResult(TOKEN_USED)
     session_token = secrets.token_urlsafe(32)
     expires_at = now + SESSION_TTL
     session.add(
