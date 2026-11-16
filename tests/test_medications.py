@@ -1,6 +1,7 @@
 """SCRUM-17: add a medication (service validation and bot helpers)."""
 
 import asyncio
+from datetime import date, time
 
 import pytest
 from sqlalchemy import func, select
@@ -10,10 +11,17 @@ from app.bot_medications import (
     FORM_PREFIX,
     build_form_keyboard,
     format_added,
+    format_my_medications,
 )
 from app.models import Medication, User
-from app.services.medications import FORMS, MedicationError, add_medication
-from app.services.schedules import latest_medication
+from app.services.medications import (
+    FORMS,
+    MedicationError,
+    add_medication,
+    describe_medications,
+    has_medication_named,
+)
+from app.services.schedules import latest_medication, set_schedule
 
 
 def run(coro):
@@ -120,4 +128,44 @@ def test_added_text_mentions_medication_and_times_hint():
     assert format_added(med) == (
         "Додано: Сертралін, 50 мг (таблетка). "
         "Тепер задайте час прийомів: /times 08:00 20:00"
+    )
+
+
+def test_has_medication_named_ignores_case_and_spaces(session_factory):
+    """Пошук дубліката назви не залежить від регістру й пробілів (кирилиця теж)"""
+    user_id = run(make_user(session_factory))
+    run(add(session_factory, user_id, name="Сертралін"))
+
+    async def check(name, uid=user_id):
+        async with session_factory() as s:
+            return await has_medication_named(s, uid, name)
+
+    assert run(check("  сЕРТРАЛІН "))
+    assert not run(check("Вітамін D"))
+    other = run(make_user(session_factory, telegram_id=2))
+    assert not run(check("Сертралін", other))  # other user's list is separate
+
+
+def test_describe_medications_lists_dose_form_and_times(session_factory):
+    """«Мої препарати»: назва, доза, форма і час прийомів; без розкладу – «час не задано»"""
+    user_id = run(make_user(session_factory))
+    med = run(add(session_factory, user_id))
+    run(add(session_factory, user_id, name="Вітамін D", dose="1000 МО", form=None))
+
+    async def scenario():
+        async with session_factory() as s:
+            await set_schedule(s, med.id, [time(20), time(8)], date(2026, 11, 16))
+            return await describe_medications(s, user_id)
+
+    assert run(scenario()) == [
+        "Сертралін, 50 мг (таблетка) – 08:00, 20:00",
+        "Вітамін D, 1000 МО – час не задано",
+    ]
+
+
+def test_my_medications_text():
+    """Текст /meds: нумерований список або підказка /add, якщо препаратів немає"""
+    assert format_my_medications([]) == "Препаратів ще немає. Додайте перший: /add"
+    assert format_my_medications(["А, 1 мг – 08:00", "Б, 2 мг – час не задано"]) == (
+        "Мої препарати:\n1. А, 1 мг – 08:00\n2. Б, 2 мг – час не задано"
     )

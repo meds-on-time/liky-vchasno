@@ -20,6 +20,8 @@ from app.services.medications import (
     FORMS,
     MedicationError,
     add_medication,
+    describe_medications,
+    has_medication_named,
     validate_dose,
     validate_form,
     validate_name,
@@ -30,6 +32,7 @@ medications_router = Router(name="medications")
 
 CANCEL_DATA = "add:cancel"
 FORM_PREFIX = "medform:"
+DUPLICATE_YES_DATA = "add:dup_yes"
 
 ASK_NAME = "Як називається препарат?"
 ASK_DOSE = "Яка доза? (напр. 50 мг)"
@@ -38,10 +41,14 @@ CANCELLED = "Додавання препарату скасовано."
 NOTHING_TO_CANCEL = "Немає дії, яку можна скасувати."
 NOT_A_COMMAND = "Зараз триває додавання препарату. Надішліть відповідь текстом або /cancel."
 ADDED = "Додано: {name}, {dose}{form}. Тепер задайте час прийомів: /times 08:00 20:00"
+DUPLICATE = "У вас уже є препарат «{name}». Додати ще один з такою назвою?"
+MY_MEDS_EMPTY = "Препаратів ще немає. Додайте перший: /add"
+MY_MEDS_HEADER = "Мої препарати:"
 
 
 class AddMedication(StatesGroup):
     name = State()
+    confirm_duplicate = State()
     dose = State()
     form = State()
 
@@ -50,6 +57,22 @@ def build_cancel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text="Скасувати", callback_data=CANCEL_DATA)]]
     )
+
+
+def build_duplicate_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Так, додати", callback_data=DUPLICATE_YES_DATA)],
+            [InlineKeyboardButton(text="Скасувати", callback_data=CANCEL_DATA)],
+        ]
+    )
+
+
+def format_my_medications(lines: list[str]) -> str:
+    if not lines:
+        return MY_MEDS_EMPTY
+    numbered = [f"{i}. {line}" for i, line in enumerate(lines, 1)]
+    return "\n".join([MY_MEDS_HEADER, *numbered])
 
 
 def build_form_keyboard() -> InlineKeyboardMarkup:
@@ -77,6 +100,17 @@ async def add_command(message: Message, state: FSMContext) -> None:
     await state.clear()
     await state.set_state(AddMedication.name)
     await message.answer(ASK_NAME, reply_markup=build_cancel_keyboard())
+
+
+@medications_router.message(Command("meds"))
+async def meds_command(message: Message) -> None:
+    """'My medications': name, dose, form and intake times."""
+    async with SessionLocal() as session:
+        user, _ = await register_user(
+            session, message.from_user.id, message.from_user.full_name
+        )
+        lines = await describe_medications(session, user.id)
+    await message.answer(format_my_medications(lines))
 
 
 @medications_router.message(Command("cancel"))
@@ -108,8 +142,36 @@ async def name_step(message: Message, state: FSMContext) -> None:
         await message.answer(f"{exc}\n{ASK_NAME}", reply_markup=build_cancel_keyboard())
         return
     await state.update_data(name=name)
+    async with SessionLocal() as session:
+        user, _ = await register_user(
+            session, message.from_user.id, message.from_user.full_name
+        )
+        duplicate = await has_medication_named(session, user.id, name)
+    if duplicate:
+        await state.set_state(AddMedication.confirm_duplicate)
+        await message.answer(DUPLICATE.format(name=name), reply_markup=build_duplicate_keyboard())
+        return
     await state.set_state(AddMedication.dose)
     await message.answer(ASK_DOSE, reply_markup=build_cancel_keyboard())
+
+
+@medications_router.callback_query(
+    StateFilter(AddMedication.confirm_duplicate), F.data == DUPLICATE_YES_DATA
+)
+async def duplicate_yes(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(AddMedication.dose)
+    if callback.message is not None:
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await callback.message.answer(ASK_DOSE, reply_markup=build_cancel_keyboard())
+    await callback.answer()
+
+
+@medications_router.message(StateFilter(AddMedication.confirm_duplicate))
+async def duplicate_text(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await message.answer(
+        DUPLICATE.format(name=data.get("name")), reply_markup=build_duplicate_keyboard()
+    )
 
 
 @medications_router.message(StateFilter(AddMedication.dose))

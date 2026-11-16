@@ -152,6 +152,42 @@ def test_add_dialog_cancel_button_and_command(chat, session_factory):
     assert medications(session_factory) == []
 
 
+def test_add_dialog_warns_about_duplicate_name(chat, session_factory):
+    """Препарат з такою назвою вже є: бот попереджає і питає, чи додати ще один"""
+    chat.send("/add")
+    chat.send("Сертралін")
+    chat.send("50 мг")
+    chat.press("medform:таблетка")
+
+    chat.send("/add")
+    assert chat.send("сертралін") == [
+        "У вас уже є препарат «сертралін». Додати ще один з такою назвою?"
+    ]
+    assert chat.last_keyboard_data() == ["add:dup_yes", "add:cancel"]
+    assert chat.press("add:dup_yes") == ["Яка доза? (напр. 50 мг)"]
+    chat.send("100 мг")
+    chat.press("medform:таблетка")
+    assert len(medications(session_factory)) == 2
+
+    chat.send("/add")
+    chat.send("Сертралін")
+    assert chat.press("add:cancel") == ["Додавання препарату скасовано."]
+    assert len(medications(session_factory)) == 2
+
+
+def test_meds_command_shows_my_medications(chat):
+    """/meds показує «Мої препарати» з дозою, формою і часом прийомів"""
+    assert chat.send("/meds") == ["Препаратів ще немає. Додайте перший: /add"]
+    chat.send("/add")
+    chat.send("Сертралін")
+    chat.send("50 мг")
+    chat.press("medform:таблетка")
+    chat.send("/times 08:00 20:00")
+    assert chat.send("/meds") == [
+        "Мої препарати:\n1. Сертралін, 50 мг (таблетка) – 08:00, 20:00"
+    ]
+
+
 def test_times_without_medication_points_to_add(chat):
     """/times до додавання препарату підказує команду /add"""
     assert chat.send("/times 08:00") == ["Спершу додайте препарат: /add"]
