@@ -22,6 +22,7 @@ npm run build      # збірка в web/dist для хостингу
 | http://localhost:5173/login?token=demo | успішний вхід |
 | http://localhost:5173/login?token=expired | «Посилання застаріло» |
 | http://localhost:5173/login?token=used | «Це посилання вже використано» |
+| http://localhost:5173/login?token=demo-empty | вхід, але вас ще ніхто не запросив |
 
 ## Змінні збірки
 
@@ -55,3 +56,32 @@ npm run build      # збірка в web/dist для хостингу
 ```
 
 Кабінет також розуміє `detail` рядком (`"Token expired"`, `"Token already used"`). Подальші запити – із заголовком `Authorization: Bearer <session>`. «Вийти» поки лише забуває сесію в браузері.
+
+## Розклади підопічних (пропозиція для ендпоінта Маші, SCRUM-31)
+
+`GET /contacts/patients` з `Authorization: Bearer <session>` – люди, які запросили цю довірену особу (`trusted_contacts.contact_id` = поточний користувач).
+
+```json
+// 200
+{
+  "patients": [
+    {
+      "id": 7,
+      "name": "Олена",
+      "medications": [
+        {
+          "id": 3,
+          "name": "Сертралін",
+          "dose": "50 мг",
+          "form": "таблетка",
+          "times": ["08:00", "20:00"],
+          "end_date": "2026-11-30"
+        }
+      ]
+    }
+  ]
+}
+// 401 – немає сесії або вона прострочена
+```
+
+`times` – за Києвом, `HH:MM`; `form` і `end_date` можуть бути `null`. Кабінет також прийме просто список без обгортки `patients`. Порожній список – сторінка «Вас ще ніхто не запросив».

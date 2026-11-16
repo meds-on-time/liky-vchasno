@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { exchangeToken } from "../api.js";
-import { mockFetch, OK_EXCHANGE } from "./helpers.js";
+import { exchangeToken, fetchPatients, normalizePatients } from "../api.js";
+import { mockFetch, OK_EXCHANGE, PATIENTS_RESPONSE } from "./helpers.js";
 
 describe("exchangeToken (POST /auth/exchange)", () => {
   it("sends the token and returns the session", async () => {
@@ -39,5 +39,36 @@ describe("exchangeToken (POST /auth/exchange)", () => {
   it("no connection -> network", async () => {
     mockFetch(new TypeError("Failed to fetch"));
     await expect(exchangeToken("abc")).rejects.toMatchObject({ code: "network" });
+  });
+});
+
+describe("fetchPatients (GET /contacts/patients)", () => {
+  it("sends the session and returns normalized patients", async () => {
+    const fetch = mockFetch(PATIENTS_RESPONSE);
+
+    const patients = await fetchPatients("session-123");
+
+    const [url, options] = fetch.mock.calls[0];
+    expect(url).toBe("/contacts/patients");
+    expect(options.headers.Authorization).toBe("Bearer session-123");
+    expect(patients[0].medications[0]).toEqual({
+      id: 3,
+      name: "Сертралін",
+      dose: "50 мг",
+      form: "таблетка",
+      times: ["08:00", "20:00"],
+      endDate: "2026-11-30",
+    });
+  });
+
+  it("401 -> unauthorized", async () => {
+    mockFetch({ status: 401, body: { detail: "Not authenticated" } });
+    await expect(fetchPatients("old")).rejects.toMatchObject({ code: "unauthorized" });
+  });
+
+  it("accepts a bare list too", () => {
+    expect(normalizePatients([{ id: 1, name: "Олена" }])).toEqual([
+      { id: 1, name: "Олена", medications: [] },
+    ]);
   });
 });

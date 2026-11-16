@@ -161,3 +161,76 @@ body {
     animation: none;
   }
 }
+
+/* SCRUM-31: schedules of the people you care for */
+.page-title {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+}
+
+.patients {
+  display: grid;
+  gap: 16px;
+}
+
+.patient h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.meds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.med {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.med:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.med-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.med-name {
+  font-weight: 600;
+}
+
+.times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.time {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.med p {
+  margin: 0;
+}
+
+.med-course {
+  font-size: 0.9rem;
+}
+
+.small {
+  font-size: 0.9rem;
+}
