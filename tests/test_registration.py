@@ -13,6 +13,7 @@ def run(coro):
 
 
 def test_new_user_is_created(session_factory):
+    """Реєстрація нового користувача створює запис із telegram_id та ім'ям"""
     async def scenario():
         async with session_factory() as session:
             return await register_user(session, 111, "Олена")
@@ -24,6 +25,7 @@ def test_new_user_is_created(session_factory):
 
 
 def test_repeated_start_does_not_create_duplicate(session_factory):
+    """Повторний виклик реєстрації повертає існуючого користувача без дублювання"""
     async def scenario():
         async with session_factory() as session:
             first, _ = await register_user(session, 222, "Петро")
@@ -38,6 +40,7 @@ def test_repeated_start_does_not_create_duplicate(session_factory):
 
 
 def test_different_users_get_different_records(session_factory):
+    """Різні telegram_id створюють окремі записи користувачів (зокрема без імені)"""
     async def scenario():
         async with session_factory() as session:
             a, _ = await register_user(session, 333, "Анна")
