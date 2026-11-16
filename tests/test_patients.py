@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, date, datetime, time
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.database import get_session
 from app.main import app
@@ -37,8 +38,10 @@ async def setup(sf):
             Schedule(medication_id=med.id, time_of_day=time(12), start_date=date(2026, 11, 1),
                      is_active=False),
             Schedule(medication_id=other.id, time_of_day=time(9), start_date=date(2026, 11, 1)),
-            TrustedContact(patient_id=olena.id, contact_id=daughter.id, invite_code="a"),
-            TrustedContact(patient_id=petro.id, contact_id=stranger.id, invite_code="b"),
+            TrustedContact(patient_id=olena.id, contact_id=daughter.id, invite_code="a",
+                           consent=True),
+            TrustedContact(patient_id=petro.id, contact_id=stranger.id, invite_code="b",
+                           consent=True),
             TrustedContact(patient_id=petro.id, contact_id=None, invite_code="c"),
         ])
         await s.commit()
@@ -58,6 +61,21 @@ def test_contact_sees_own_patient_with_times_and_course_end(session_factory):
     assert med["name"] == "Сертралін"
     assert med["times"] == ["08:00", "20:00"]  # inactive 12:00 is hidden
     assert med["end_date"] == date(2026, 11, 30)
+
+
+def test_patient_without_consent_is_hidden(session_factory):
+    daughter_id, _ = run(setup(session_factory))
+
+    async def scenario():
+        async with session_factory() as s:
+            link = await s.scalar(
+                select(TrustedContact).where(TrustedContact.contact_id == daughter_id)
+            )
+            link.consent = False  # patient sent /consent_off
+            await s.commit()
+            return await patients_of(s, daughter_id)
+
+    assert run(scenario()) == []
 
 
 def test_no_patients_gives_empty_list(session_factory):

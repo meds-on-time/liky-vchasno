@@ -11,13 +11,16 @@ from app.models import Medication, Schedule, TrustedContact, User
 async def patients_of(session: AsyncSession, contact_user_id: int) -> list[dict]:
     """Patients who invited this user, with active medications and intake times.
 
-    Only links where the invite was accepted (contact_id = this user) are returned,
-    so nobody sees other people's patients.
+    Only accepted invites (contact_id = this user) with consent on are returned:
+    nobody sees other people's patients, and /consent_off hides the schedule too.
     """
     patients = await session.scalars(
         select(User)
         .join(TrustedContact, TrustedContact.patient_id == User.id)
-        .where(TrustedContact.contact_id == contact_user_id)
+        .where(
+            TrustedContact.contact_id == contact_user_id,
+            TrustedContact.consent.is_(True),
+        )
         .order_by(User.id)
         .distinct()
     )

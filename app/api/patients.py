@@ -63,8 +63,8 @@ class PatientsOut(BaseModel):
     description=(
         "Для довіреної особи, що увійшла в кабінет: люди, які її запросили (/invite), "
         "їхні препарати і час прийомів (Europe/Kyiv, ГГ:ХХ). end_date – останній день курсу "
-        "або null. Порожній список – вас ще ніхто не запросив. Чужих пацієнтів не видно."
-    ),
+        "або null. Пацієнт видно, лише поки діє його згода (/consent_on). "
+        "Порожній список – немає підопічних. Чужих пацієнтів не видно."    ),
     responses={401: {"description": "Немає дійсної сесії"}},
 )
 async def my_patients(user: CurrentUser, session: SessionDep) -> PatientsOut:
