@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
 
 import { isMockMode } from "./api.js";
-import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import PatientsPage from "./pages/PatientsPage.jsx";
 import SignedOutPage from "./pages/SignedOutPage.jsx";
 import { clearSession, getSession } from "./session.js";
 
@@ -14,7 +14,8 @@ export default function App() {
   const [path] = useState(() => window.location.pathname);
   const [token] = useState(() => new URLSearchParams(window.location.search).get("token"));
   const [session, setSession] = useState(() => getSession());
-  const [justLoggedOut, setJustLoggedOut] = useState(false);
+  // Why there is no session: "logout" after «Вийти», "expired" when the server rejected it
+  const [signedOutReason, setSignedOutReason] = useState(null);
   const [loggingIn, setLoggingIn] = useState(path === "/login");
 
   const handleLogin = useCallback((newSession) => {
@@ -24,20 +25,22 @@ export default function App() {
     setLoggingIn(false);
   }, []);
 
-  function handleLogout() {
+  const signOut = useCallback((reason) => {
     clearSession();
     setSession(null);
-    setJustLoggedOut(true);
+    setSignedOutReason(reason);
     go("/");
-  }
+  }, []);
+
+  const handleUnauthorized = useCallback(() => signOut("expired"), [signOut]);
 
   let page;
   if (loggingIn) {
     page = <LoginPage token={token} onSuccess={handleLogin} />;
   } else if (session) {
-    page = <HomePage user={session.user} />;
+    page = <PatientsPage session={session.session} onUnauthorized={handleUnauthorized} />;
   } else {
-    page = <SignedOutPage justLoggedOut={justLoggedOut} />;
+    page = <SignedOutPage reason={signedOutReason} />;
   }
 
   return (
@@ -54,7 +57,7 @@ export default function App() {
         {session && !loggingIn && (
           <div className="user">
             {session.user?.name && <span className="muted">{session.user.name}</span>}
-            <button type="button" className="button button-secondary" onClick={handleLogout}>
+            <button type="button" className="button button-secondary" onClick={() => signOut("logout")}>
               Вийти
             </button>
           </div>
