@@ -1,7 +1,7 @@
 // All user-facing texts of the login flow in one place.
 export const NEW_LINK_HINT =
-  "Відкрийте бота «Ліки вчасно» в Telegram і натисніть «Веб-кабінет» " +
-  "(або надішліть команду /web), щоб отримати нове посилання.";
+  "Надішліть боту «Ліки вчасно» в Telegram команду /web (вона є в меню бота), " +
+  "щоб отримати нове посилання.";
 
 export const LOGIN_ERRORS = {
   missing_token: { title: "У посиланні немає коду входу", hint: NEW_LINK_HINT },
