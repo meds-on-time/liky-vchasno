@@ -73,23 +73,27 @@ async def snooze(sf, now):
 
 
 def test_no_reminder_before_time(session_factory):
+    """До настання планового часу прийому нагадування не надсилається"""
     run(setup(session_factory))
     assert run(tick(session_factory, at(19, 59))) == []
 
 
 def test_reminder_at_time_creates_pending_intake(session_factory):
+    """У плановий час T створюється прийом у статусі pending і надсилається нагадування"""
     run(setup(session_factory))
     assert run(tick(session_factory, at(20, 0))) == [("regular", 100)]
     assert run(intake(session_factory)).status == "pending"
 
 
 def test_reminder_is_sent_only_once(session_factory):
+    """Основне нагадування о плановому часі T надсилається лише один раз"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     assert run(tick(session_factory, at(20, 1))) == []
 
 
 def test_take_on_time(session_factory):
+    """Вчасне підтвердження прийому змінює статус на taken і повертає ok"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     result, _ = run(take(session_factory, at(20, 3)))
@@ -98,6 +102,7 @@ def test_take_on_time(session_factory):
 
 
 def test_second_take_is_already_taken(session_factory):
+    """Повторне «Прийняв» повертає already_taken і час першої відмітки"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     run(take(session_factory, at(20, 3)))
@@ -107,6 +112,7 @@ def test_second_take_is_already_taken(session_factory):
 
 
 def test_take_cancels_repeat_and_alert(session_factory):
+    """Підтверджений прийом скасовує повторне нагадування на T+30 і сигнал на T+60"""
     run(setup(session_factory, with_contact=True))
     run(tick(session_factory, at(20, 0)))
     run(take(session_factory, at(20, 10)))
@@ -115,6 +121,7 @@ def test_take_cancels_repeat_and_alert(session_factory):
 
 
 def test_snooze_sends_one_more_reminder_after_10_min(session_factory):
+    """Відкладення прийому надсилає додаткове нагадування рівно через 10 хвилин"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     result, _ = run(snooze(session_factory, at(20, 5)))
@@ -124,11 +131,13 @@ def test_snooze_sends_one_more_reminder_after_10_min(session_factory):
 
 
 def test_snooze_after_t_plus_50_is_too_late(session_factory):
+    """Спроба відкласти прийом після T+50 відхиляється зі статусом too_late"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     assert run(snooze(session_factory, at(20, 52))) == ("too_late", None)
 
 def test_repeat_at_t_plus_30(session_factory):
+    """За відсутності реакції на T+30 одноразово надсилається повторне нагадування"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     assert run(tick(session_factory, at(20, 30))) == [("repeat", 100)]
@@ -136,6 +145,7 @@ def test_repeat_at_t_plus_30(session_factory):
 
 
 def test_snooze_near_t_plus_30_gives_one_message_not_two(session_factory):
+    """Відкладення поблизу T+30 не дублює повідомлення після повторного нагадування"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     run(snooze(session_factory, at(20, 25)))  # would fire at 20:35
@@ -143,6 +153,7 @@ def test_snooze_near_t_plus_30_gives_one_message_not_two(session_factory):
     assert run(tick(session_factory, at(20, 35))) == []
 
 def test_snooze_does_not_move_missed_time(session_factory):
+    """Відкладення не зсуває межу пропуску: на T+60 прийом стає missed"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     run(snooze(session_factory, at(20, 45)))
@@ -151,6 +162,7 @@ def test_snooze_does_not_move_missed_time(session_factory):
 
 
 def test_missed_at_t_plus_60_alerts_contact_with_consent(session_factory):
+    """На T+60 пропуск прийому одноразово сповіщає довірену особу за наявності згоди"""
     run(setup(session_factory, with_contact=True, consent=True))
     run(tick(session_factory, at(20, 0)))
     assert run(tick(session_factory, at(21, 0))) == [("missed_alert", 200)]
@@ -158,6 +170,7 @@ def test_missed_at_t_plus_60_alerts_contact_with_consent(session_factory):
 
 
 def test_missed_without_consent_sends_no_alert(session_factory):
+    """На T+60 без згоди прийом позначається missed, але сигнал не надсилається"""
     run(setup(session_factory, with_contact=True, consent=False))
     run(tick(session_factory, at(20, 0)))
     assert run(tick(session_factory, at(21, 0))) == []
@@ -165,6 +178,7 @@ def test_missed_without_consent_sends_no_alert(session_factory):
 
 
 def test_take_after_missed_changes_nothing_but_is_logged(session_factory):
+    """Відмітка після T+60 не змінює статус missed, але логує taken_after_missed"""
     run(setup(session_factory))
     run(tick(session_factory, at(20, 0)))
     run(tick(session_factory, at(21, 0)))
@@ -179,6 +193,7 @@ def test_take_after_missed_changes_nothing_but_is_logged(session_factory):
 
 
 def test_course_end_date_stops_reminders(session_factory):
+    """Після дати завершення курсу end_date нагадування більше не створюються"""
     run(setup(session_factory))
 
     async def end_course():
@@ -192,6 +207,7 @@ def test_course_end_date_stops_reminders(session_factory):
 
 
 def test_api_take_and_snooze_and_404(session_factory):
+    """API /intakes/{id}/take і /snooze повертають 404 для невідомого ID та результат для діючого"""
     run(setup(session_factory))
 
     async def override():

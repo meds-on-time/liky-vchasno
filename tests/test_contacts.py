@@ -63,6 +63,7 @@ async def tick(sf, now):
 
 
 def test_create_invite_makes_unlinked_row_without_consent(session_factory):
+    """Створення запрошення додає неприв'язаний запис контакту без згоди"""
     run(add_users(session_factory))
     code = run(invite(session_factory))
     [row] = run(rows(session_factory))
@@ -73,15 +74,18 @@ def test_create_invite_makes_unlinked_row_without_consent(session_factory):
 
 
 def test_invite_codes_are_unique(session_factory):
+    """Кожне нове запрошення генерує унікальний код"""
     run(add_users(session_factory))
     assert run(invite(session_factory)) != run(invite(session_factory))
 
 
 def test_invite_link_format():
+    """Посилання-запрошення формується у форматі deep link з префіксом inv_"""
     assert invite_link("liky_bot", "abc") == "https://t.me/liky_bot?start=inv_abc"
 
 
 def test_accept_invite_links_contact(session_factory):
+    """Прийняття запрошення прив'язує довірену особу до пацієнта без увімкнення згоди"""
     run(add_users(session_factory))
     code = run(invite(session_factory))
     assert run(accept(session_factory, code)) == ("ok", 1)
@@ -91,6 +95,7 @@ def test_accept_invite_links_contact(session_factory):
 
 
 def test_invite_code_is_one_time(session_factory):
+    """Код запрошення одноразовий і при повторному використанні повертає already_used"""
     run(add_users(session_factory))
     code = run(invite(session_factory))
     run(accept(session_factory, code, contact_id=2))
@@ -100,6 +105,7 @@ def test_invite_code_is_one_time(session_factory):
 
 
 def test_own_link_is_rejected(session_factory):
+    """Пацієнт не може прийняти власне запрошення (повертається self)"""
     run(add_users(session_factory))
     code = run(invite(session_factory))
     assert run(accept(session_factory, code, contact_id=1)) == ("self", 1)
@@ -108,11 +114,13 @@ def test_own_link_is_rejected(session_factory):
 
 
 def test_unknown_code_is_not_found(session_factory):
+    """Невідомий код запрошення повертає результат not_found"""
     run(add_users(session_factory))
     assert run(accept(session_factory, "nope")) == ("not_found", None)
 
 
 def test_same_contact_is_not_linked_twice(session_factory):
+    """Повторне приєднання тієї самої довіреної особи повертає already_linked"""
     run(add_users(session_factory))
     run(accept(session_factory, run(invite(session_factory))))
     second = run(invite(session_factory))
@@ -122,6 +130,7 @@ def test_same_contact_is_not_linked_twice(session_factory):
 
 
 def test_consent_without_linked_contacts_changes_nothing(session_factory):
+    """Зміна згоди без прив'язаних контактів не оновлює жодного запису"""
     run(add_users(session_factory))
     run(invite(session_factory))  # invite sent, but nobody opened it
     assert run(consent(session_factory, True)) == 0
@@ -129,6 +138,7 @@ def test_consent_without_linked_contacts_changes_nothing(session_factory):
 
 
 def test_consent_on_and_off(session_factory):
+    """Увімкнення та вимкнення згоди оновлює прапорець consent прив'язаного контакту"""
     run(add_users(session_factory))
     run(accept(session_factory, run(invite(session_factory))))
     assert run(consent(session_factory, True)) == 1
@@ -138,6 +148,7 @@ def test_consent_on_and_off(session_factory):
 
 
 def test_consent_is_logged(session_factory):
+    """Створення й прийняття запрошення та зміни згоди записуються в журнал подій"""
     run(add_users(session_factory))
     run(accept(session_factory, run(invite(session_factory))))
     run(consent(session_factory, True))
@@ -151,6 +162,7 @@ def test_consent_is_logged(session_factory):
 
 
 def test_missed_intake_alerts_contact_after_consent_on(session_factory):
+    """Пропуск прийому на T+60 надсилає сповіщення довіреній особі за наявності згоди"""
     run(add_users(session_factory))
     run(accept(session_factory, run(invite(session_factory))))
     run(consent(session_factory, True))
@@ -159,6 +171,7 @@ def test_missed_intake_alerts_contact_after_consent_on(session_factory):
 
 
 def test_no_alert_after_consent_off(session_factory):
+    """Після відкликання згоди сповіщення про пропуск довіреній особі не надсилається"""
     run(add_users(session_factory))
     run(accept(session_factory, run(invite(session_factory))))
     run(consent(session_factory, True))
@@ -168,6 +181,7 @@ def test_no_alert_after_consent_off(session_factory):
 
 
 def test_no_alert_before_invite_is_accepted(session_factory):
+    """До прийняття запрошення сповіщення про пропуск прийому не надсилається"""
     run(add_users(session_factory))
     run(invite(session_factory))
     run(consent(session_factory, True))

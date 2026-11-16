@@ -34,6 +34,7 @@ def callback_data(markup) -> list[str]:
 
 
 def test_keyboard_with_snooze_has_two_buttons():
+    """Клавіатура з відкладенням має кнопки «Прийняв» та «Нагадати за 10 хв»"""
     markup = build_keyboard(7, show_snooze=True)
     assert callback_data(markup) == ["taken:7", "snooze:7"]
     texts = [b.text for row in markup.inline_keyboard for b in row]
@@ -41,10 +42,12 @@ def test_keyboard_with_snooze_has_two_buttons():
 
 
 def test_keyboard_without_snooze_has_only_take():
+    """Клавіатура без відкладення містить лише кнопку «Прийняв»"""
     assert callback_data(build_keyboard(7, show_snooze=False)) == ["taken:7"]
 
 
 def test_snooze_button_hidden_from_t_plus_50():
+    """Відкладення доступне на T+49 і стає недоступним починаючи з T+50"""
     assert can_snooze(T, T + timedelta(minutes=49)) is True
     assert can_snooze(T, T + timedelta(minutes=50)) is False
 
@@ -53,6 +56,7 @@ def test_snooze_button_hidden_from_t_plus_50():
 
 
 def test_reminder_text_has_name_dose_and_kyiv_time():
+    """Текст нагадування містить назву ліків, дозу та час прийому за Києвом"""
     text = build_reminder_text(notification())
     assert "Сертралін" in text
     assert "50 мг" in text
@@ -61,11 +65,13 @@ def test_reminder_text_has_name_dose_and_kyiv_time():
 
 
 def test_reminder_text_depends_on_kind():
+    """Початок тексту нагадування залежить від типу: відкладене або повторне"""
     assert build_reminder_text(notification("snooze")).startswith("Нагадую ще раз, як ви просили")
     assert build_reminder_text(notification("repeat")).startswith("Нагадуємо ще раз")
 
 
 def test_reminder_text_with_naive_utc_from_sqlite():
+    """Наївний UTC-час із SQLite коректно переводиться у київський час у тексті"""
     n = notification()
     n.intake.scheduled_at = datetime(2026, 11, 16, 18, 0)  # naive UTC, as SQLite returns
     assert "20:00" in build_reminder_text(n)
@@ -77,6 +83,7 @@ AT = datetime(2026, 11, 16, 18, 5, tzinfo=UTC)  # 20:05 Kyiv
 
 
 def test_take_answers():
+    """Форматування тексту відповіді на «Прийняв» для всіх результатів"""
     assert format_take_answer(None) == "Прийом не знайдено"
     assert format_take_answer(("ok", AT)) == "Записано о 20:05"
     assert format_take_answer(("already_taken", AT)) == "Вже відмічено о 20:05"
@@ -86,6 +93,7 @@ def test_take_answers():
 
 
 def test_snooze_answers():
+    """Форматування тексту відповіді на відкладення для всіх результатів"""
     assert format_snooze_answer(None) == "Прийом не знайдено"
     assert format_snooze_answer(("ok", AT)) == "Нагадаю о 20:05"
     assert format_snooze_answer(("already_taken", None)) == "Ви вже відмітили цей прийом"
@@ -98,6 +106,7 @@ def test_snooze_answers():
 
 
 def test_parse_intake_id():
+    """Розбір ID прийому з callback_data та повернення None для некоректних даних"""
     assert parse_intake_id("taken:15") == 15
     assert parse_intake_id("snooze:3") == 3
     assert parse_intake_id("taken:abc") is None
@@ -127,6 +136,7 @@ async def make_intake(sf) -> int:
 
 
 def test_owner_telegram_id(session_factory):
+    """Визначення telegram_id власника прийому та повернення None для неіснуючого ID"""
     intake_id = run(make_intake(session_factory))
 
     async def lookup(i):
@@ -165,6 +175,7 @@ def press(monkeypatch, sf, handler, data, user_id, now):
 
 
 def test_take_button_records_and_second_press_is_already_taken(session_factory, monkeypatch):
+    """Натискання «Прийняв» фіксує прийом, а повторне повідомляє про вже відмічений"""
     i = run(make_intake(session_factory))
     now = T + timedelta(minutes=5)
     first = press(monkeypatch, session_factory, bot_reminders.on_take, f"taken:{i}", 100, now)
@@ -174,6 +185,7 @@ def test_take_button_records_and_second_press_is_already_taken(session_factory, 
 
 
 def test_snooze_button_answers_with_remind_time(session_factory, monkeypatch):
+    """Натискання «Нагадати за 10 хв» відповідає часом наступного нагадування"""
     i = run(make_intake(session_factory))
     cb = press(monkeypatch, session_factory, bot_reminders.on_snooze, f"snooze:{i}", 100,
                T + timedelta(minutes=5))
@@ -181,6 +193,7 @@ def test_snooze_button_answers_with_remind_time(session_factory, monkeypatch):
 
 
 def test_someone_else_cannot_press_the_button(session_factory, monkeypatch):
+    """Сторонній користувач не може натиснути кнопку чужого нагадування"""
     i = run(make_intake(session_factory))
     cb = press(monkeypatch, session_factory, bot_reminders.on_take, f"taken:{i}", 555,
                T + timedelta(minutes=5))
@@ -189,5 +202,6 @@ def test_someone_else_cannot_press_the_button(session_factory, monkeypatch):
 
 
 def test_unknown_intake_is_not_found(session_factory, monkeypatch):
+    """Натискання кнопки для неіснуючого прийому повертає «Прийом не знайдено»"""
     cb = press(monkeypatch, session_factory, bot_reminders.on_take, "taken:999", 100, T)
     assert cb.sent == ["Прийом не знайдено"]
