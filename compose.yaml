@@ -21,6 +21,8 @@ services:
       BOT_TOKEN: ${BOT_TOKEN:-}
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://meds_local:local_only_password@db:5432/meds_local}
       TZ: Europe/Kyiv
+      WEB_URL: ${WEB_URL:-http://localhost:5173}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
