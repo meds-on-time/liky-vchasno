@@ -16,6 +16,7 @@ COMMANDS = [
     BotCommand(command="invite", description="Запросити довірену особу"),
     BotCommand(command="consent_on", description="Увімкнути сигнал довіреній особі"),
     BotCommand(command="consent_off", description="Вимкнути сигнал довіреній особі"),
+    BotCommand(command="web", description="Увійти у веб-кабінет"),
     BotCommand(command="cancel", description="Скасувати поточну дію"),
 ]
 

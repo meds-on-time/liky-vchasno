@@ -7,15 +7,17 @@ from contextlib import asynccontextmanager
 
 from aiogram import Bot, Dispatcher
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import intakes, schedules
+from app.api import auth, intakes, schedules
 from app.bot import router
 from app.bot_commands import set_commands
 from app.bot_contacts import router as contacts_router
 from app.bot_medications import medications_router
 from app.bot_reminders import reminders_router
-from app.config import BOT_TOKEN
+from app.bot_web import web_router
+from app.config import BOT_TOKEN, WEB_URL
 from app.database import engine
 from app.scheduler import scheduler_loop
 
@@ -37,6 +39,7 @@ async def lifespan(app: FastAPI):
         dp.include_router(router)
         dp.include_router(medications_router)
         dp.include_router(reminders_router)
+        dp.include_router(web_router)
         tasks.append(
             asyncio.create_task(
                 dp.start_polling(bot, handle_signals=False, close_bot_session=False)
@@ -61,6 +64,10 @@ async def lifespan(app: FastAPI):
 
 
 tags_metadata = [
+    {
+        "name": "auth",
+        "description": "Вхід у веб-кабінет: одноразове посилання з бота і сесія.",
+    },
     {
         "name": "intakes",
         "description": (
@@ -96,6 +103,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# The web cabinet calls the API from the browser: allow only its address
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[WEB_URL.rstrip("/")],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
 app.include_router(intakes.router)
 app.include_router(schedules.router)
 
