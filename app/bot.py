@@ -7,6 +7,12 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import Message
 
 from app.database import SessionLocal
+from app.services.courses import (
+    CourseError,
+    course_end_date,
+    parse_course_days,
+    set_course_end,
+)
 from app.services.schedules import (
     ScheduleError,
     latest_medication,
@@ -61,3 +67,35 @@ async def times_command(message: Message, command: CommandObject) -> None:
 
     listed = ", ".join(r.time_of_day.strftime("%H:%M") for r in rows)
     await message.answer(f"{medication.name}: нагадуватиму щодня о {listed}.")
+
+
+@router.message(Command("course"))
+async def course_command(message: Message, command: CommandObject) -> None:
+    """/course 14 – course of 14 days for the last added medication; /course off – no end."""
+    if not command.args:
+        await message.answer(
+            "Напишіть тривалість курсу в днях, напр.: /course 14. "
+            "Щоб прибрати кінець курсу: /course off"
+        )
+        return
+
+    async with SessionLocal() as session:
+        user, _ = await register_user(
+            session, message.from_user.id, message.from_user.full_name
+        )
+        medication = await latest_medication(session, user.id)
+        if medication is None:
+            await message.answer("Спершу додайте препарат: /add")
+            return
+        try:
+            days = parse_course_days(command.args)
+            end = course_end_date(datetime.now(KYIV).date(), days)
+            await set_course_end(session, medication.id, end)
+        except CourseError as exc:
+            await message.answer(str(exc))
+            return
+
+    if end is None:
+        await message.answer(f"{medication.name}: курс без дати завершення.")
+    else:
+        await message.answer(f"{medication.name}: курс до {end:%d.%m}.")
