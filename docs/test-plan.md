@@ -1,6 +1,6 @@
 # Тест-план MVP «Ліки вчасно»
 
-_SCRUM-38 · Максим Безверхий (QA) · етап 4, Sprint 2 · 16.11.2026_
+_SCRUM-38, SCRUM-71 · Максим Безверхий (QA) · етапи 4–5 · оновлено 18.11.2026_
 
 ## 1. Мета і обсяг
 
@@ -72,3 +72,39 @@ python scripts/junit_to_table.py reports/junit-unit.xml --title "Журнал м
 5. Повторне «Прийняв» – через Swagger: POST /intakes/{id}/take двічі (ok, потім already_taken), бо після «Прийняв» кнопки зникають.
 6. /times 08:00 08:30 – відмова з поясненням про 60 хв.
 7. /invite з другого акаунта, /consent_on; заздалегідь пропущений прийом – сигнал довіреній особі.
+
+## 8. Етап 5: нові тест-кейси
+
+Sprint 3 (етап 5) додав вхід у веб-кабінет (SCRUM-16, 53), розклади підопічного (SCRUM-31, 69) і тривалість курсу (SCRUM-19). Модульні тести до них пишуть автори задач; QA додає інтеграційні тести на PostgreSQL там, де важлива справжня БД (одночасні запити, UNIQUE, timestamptz, межа доби за Києвом), і наскрізний сценарій через Dispatcher бота.
+
+| ID | Сценарій (дано / коли) | Очікуваний результат | Рівень | Автотест |
+|---|---|---|---|---|
+| TC-16 | /web → посилання → POST /auth/exchange → GET /auth/me | Сесія на 7 днів, /auth/me повертає користувача | І | test_api_full_login_flow, test_bot_web_command_link_logs_in |
+| TC-17 | Те саме посилання вдруге | 401 token_used і підказка «візьміть нове через /web» | М, І | test_second_exchange_is_rejected, test_api_second_exchange_is_401_token_used |
+| TC-18 | Посилання старше 10 хв; вигаданий токен | 401 token_expired / token_invalid | М, І | test_api_expired_and_unknown_tokens_are_401, test_token_lifetime_boundary_in_postgres |
+| TC-19 | Два одночасні обміни одного токена (подвійне натискання) | Рівно одна сесія, другий запит – token_used | І | test_two_simultaneous_exchanges_give_one_session |
+| TC-20 | GET /auth/me без сесії, з вигаданою або простроченою | 401 | М, І | test_api_me_without_valid_session_is_401 |
+| TC-21 | У БД після /web | Лише SHA-256 хеш, дубль хешу відхиляє UNIQUE | М, І | test_only_hash_is_stored, test_only_hashes_stored_and_hash_is_unique |
+| TC-22 | GET /contacts/patients довіреною особою | Видно лише своїх підопічних зі згодою: препарати, час, end_date; чужих – ні; без сесії – 401 | М, І | tests/test_patients.py (Маша); інтеграційні – після злиття SCRUM-69 |
+| TC-23 | /course 7, /course 1, /course 365, /course 0 / off | «Курс до ДД.ММ» (сьогодні – день 1); off – без кінця | М, І | test_parse_valid_days, test_course_off_clears_end, test_course_errors_in_bot |
+| TC-24 | /course 400, /course abc, /course без препарату або без /times | Пояснення помилки, end_date не змінюється | М, І | test_course_errors_in_bot (+3) |
+| TC-25 | Останній день курсу і наступний, прийом о 00:30 і 23:45 за Києвом | Останній день нагадує, наступний – ні (дата за Києвом, не UTC) | М, І | test_course_end_after_midnight_uses_kyiv_date, test_course_end_late_evening_last_day |
+| TC-26 | /times після /course; /meds | Кінець курсу зберігається; /meds показує «курс до …» | М, І | test_new_times_keep_course_and_off_clears_it |
+| TC-27 | Повний шлях: /start → /add → /times → /course → /meds → /web → кабінет | Усі кроки відповідають очікуваними текстами, вхід у кабінет працює | І | test_user_journey_from_start_to_web_cabinet |
+
+## 9. Чек-лист розгорнутої версії
+
+| № | Що перевірити на розгорнутій версії | Очікувано | Результат |
+|---|---|---|---|
+| 1 | GET {API}/health | status ok, database connected, bot_enabled true | ☐ |
+| 2 | {API}/docs відкривається ззовні по HTTPS | Swagger з розділами intakes, schedules, auth | ☐ |
+| 3 | /start і /add у продакшн-боті | Реєстрація, препарат збережено | ☐ |
+| 4 | /times на час через 2 хв | Нагадування з двома кнопками в межах 30 с | ☐ |
+| 5 | «Нагадати за 10 хв», потім «Прийняв» | «Нагадаю о …», «Записано о …» | ☐ |
+| 6 | Прийом без відповіді (за годину до перевірки) | Повтор на T+30, сигнал довіреній особі на T+60 | ☐ |
+| 7 | /course 3 і /meds | «Курс до …» у відповіді та в /meds | ☐ |
+| 8 | /web → посилання → кабінет | Вхід без помилок, сторінка розкладів | ☐ |
+| 9 | Те саме посилання вдруге | Текст «Посилання вже використано…» | ☐ |
+| 10 | Перезапуск контейнера | Дані на місці, нагадування йдуть далі | ☐ |
+
+_Заповнюється після деплою (SCRUM-37). Результат: ✓ / ✗ і примітка; підсумок іде в журнал SCRUM-71._
