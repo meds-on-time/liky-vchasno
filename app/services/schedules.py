@@ -76,11 +76,19 @@ async def set_schedule(
             Schedule.medication_id == medication_id, Schedule.is_active.is_(True)
         )
     )
+    # SCRUM-19: new times keep the course end that was set with /course
+    end_date = None
     for schedule in old:
         schedule.is_active = False
+        end_date = end_date or schedule.end_date
 
     new = [
-        Schedule(medication_id=medication_id, time_of_day=t, start_date=start_date)
+        Schedule(
+            medication_id=medication_id,
+            time_of_day=t,
+            start_date=start_date,
+            end_date=end_date,
+        )
         for t in times
     ]
     session.add_all(new)

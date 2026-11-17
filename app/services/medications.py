@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Medication, Schedule
+from app.services.courses import course_end
 
 NAME_MIN = 2
 NAME_MAX = 100
@@ -91,5 +92,7 @@ async def describe_medications(session: AsyncSession, user_id: int) -> list[str]
         form = f" ({med.form})" if med.form else ""
         times = await active_times(session, med.id)
         when = ", ".join(t.strftime("%H:%M") for t in times) if times else "час не задано"
-        lines.append(f"{med.name}, {med.dose}{form} – {when}")
+        end = await course_end(session, med.id)
+        course = f", курс до {end:%d.%m}" if end else ""
+        lines.append(f"{med.name}, {med.dose}{form} – {when}{course}")
     return lines
