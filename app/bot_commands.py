@@ -13,6 +13,7 @@ COMMANDS = [
     BotCommand(command="add", description="Додати препарат"),
     BotCommand(command="meds", description="Мої препарати"),
     BotCommand(command="times", description="Час прийомів, напр. /times 08:00 20:00"),
+    BotCommand(command="course", description="Тривалість курсу, напр. /course 14"),
     BotCommand(command="invite", description="Запросити довірену особу"),
     BotCommand(command="consent_on", description="Увімкнути сигнал довіреній особі"),
     BotCommand(command="consent_off", description="Вимкнути сигнал довіреній особі"),
