@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import auth, intakes, schedules
+from app.api import auth, intakes, patients, schedules
 from app.bot import router
 from app.bot_commands import set_commands
 from app.bot_contacts import router as contacts_router
@@ -112,6 +112,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(patients.router)
 app.include_router(intakes.router)
 app.include_router(schedules.router)
 
